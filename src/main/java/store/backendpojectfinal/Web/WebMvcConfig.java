@@ -9,9 +9,12 @@ public class WebMvcConfig implements WebMvcConfigurer {
 
     @Override
     public void addCorsMappings(CorsRegistry registry) {
-        registry.addMapping("/api/vetements/**")  // Adjust the mapping pattern according to your API endpoints
-                .allowedOrigins("http://localhost:4200")  // Allow requests from Angular app
-                .allowedMethods("GET", "POST", "PUT", "DELETE")  // Allow specific HTTP methods
-                .allowCredentials(true);  // Allow credentials (cookies, authorization headers)
+        registry.addMapping("/**")  // Adjust the mapping pattern according to your API endpoints
+                .allowedOrigins("http://localhost:4200/")  // Allow requests from Angular app
+                .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
+                .allowedHeaders("Authorization", "Content-Type", "X-Requested-With", "Accept", "Origin")
+                .exposedHeaders("Authorization", "Content-Length", "X-Foo", "X-Bar")
+                .allowCredentials(true)
+                .maxAge(3600);  // Cache pre-flight response for 1 hour
     }
 }

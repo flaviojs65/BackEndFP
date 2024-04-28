@@ -1,5 +1,6 @@
 package store.backendpojectfinal.entities;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -34,6 +35,7 @@ public class User implements UserDetails {
 
 
     @OneToMany(mappedBy = "user")
+    @JsonIgnore // Evita la serialización de la lista de tokens
     private List<Token> tokens;
 
     public Integer getId() {
@@ -113,7 +115,14 @@ public class User implements UserDetails {
         return tokens;
     }
 
+//    public void setToken(String token) {
+//         this.token = token;
+//    }
     public void setTokens(List<Token> tokens) {
         this.tokens = tokens;
+    }
+
+    public Object getRoles() {
+        return this.role;
     }
 }

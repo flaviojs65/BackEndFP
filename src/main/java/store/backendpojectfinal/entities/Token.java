@@ -26,6 +26,18 @@ public class Token {
         return id;
     }
 
+    public Token(String tokenValue, boolean loggedOut, User user) {
+        this.token = tokenValue;
+        this.loggedOut = loggedOut;
+        this.user = user;
+    }
+
+
+
+    public void setTokenValue(String token) {
+        this.token = token;
+    }
+
     public void setId(Integer id) {
         this.id = id;
     }

@@ -1,10 +1,13 @@
 package store.backendpojectfinal.service;
 
 
-
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.AuthenticationException;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 import store.backendpojectfinal.entities.AuthenticationResponse;
 import store.backendpojectfinal.entities.Token;
@@ -12,56 +15,30 @@ import store.backendpojectfinal.entities.User;
 import store.backendpojectfinal.repositories.TokenRepository;
 import store.backendpojectfinal.repositories.UserRepository;
 
-import java.util.List;
-
 @Service
 public class AuthenticationService {
 
-    private final UserRepository repository;
-    private final PasswordEncoder passwordEncoder;
-    private final JwtService jwtService;
-
+    private final UserRepository userRepository;
     private final TokenRepository tokenRepository;
-
+    private final JwtService jwtService;
     private final AuthenticationManager authenticationManager;
 
-    public AuthenticationService(UserRepository repository,
-                                 PasswordEncoder passwordEncoder,
-                                 JwtService jwtService,
-                                 TokenRepository tokenRepository,
-                                 AuthenticationManager authenticationManager) {
-        this.repository = repository;
-        this.passwordEncoder = passwordEncoder;
-        this.jwtService = jwtService;
+    @Autowired
+    public AuthenticationService(UserRepository userRepository, TokenRepository tokenRepository,
+                                 JwtService jwtService, AuthenticationManager authenticationManager) {
+        this.userRepository = userRepository;
         this.tokenRepository = tokenRepository;
+        this.jwtService = jwtService;
         this.authenticationManager = authenticationManager;
     }
 
-    public AuthenticationResponse register(User request) {
-
-        // check if user already exist. if exist than authenticate the user
-        if(repository.findByUsername(request.getUsername()).isPresent()) {
-            return new AuthenticationResponse(null, "User already exist");
-        }
-
-        User user = new User();
-        user.setFirstName(request.getFirstName());
-        user.setLastName(request.getLastName());
-        user.setUsername(request.getUsername());
-        user.setPassword(passwordEncoder.encode(request.getPassword()));
-
-
-        user.setRole(request.getRole());
-
-        user = repository.save(user);
-
-        String jwt = jwtService.generateToken(user);
-
-        saveUserToken(jwt, user);
-
-        return new AuthenticationResponse(jwt, "User registration was successful");
-
+    public void authenticate(UsernamePasswordAuthenticationToken authenticationToken) {
+        Authentication authentication = authenticationManager.authenticate(authenticationToken);
+        SecurityContextHolder.getContext().setAuthentication(authentication);
     }
+
+
+
 
     public AuthenticationResponse authenticate(User request) {
         authenticationManager.authenticate(
@@ -71,7 +48,7 @@ public class AuthenticationService {
                 )
         );
 
-        User user = repository.findByUsername(request.getUsername()).orElseThrow();
+        User user =  userRepository.findByUsername(request.getUsername());
         String jwt = jwtService.generateToken(user);
 
         revokeAllTokenByUser(user);
@@ -80,23 +57,47 @@ public class AuthenticationService {
         return new AuthenticationResponse(jwt, "User login was successful");
 
     }
-    private void revokeAllTokenByUser(User user) {
-        List<Token> validTokens = tokenRepository.findAllTokensByUser(user.getId());
-        if(validTokens.isEmpty()) {
-            return;
+
+
+
+
+
+
+
+
+
+
+    public String authenticateAndGenerateToken(String username, String password) {
+        try {
+            System.out.println("Starting authentication for user: " + username);
+            Authentication authentication = authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(username, password)
+            );
+            System.out.println("Authentication successful for user: " + username);
+            SecurityContextHolder.getContext().setAuthentication(authentication);
+
+            User user = userRepository.findByUsername(username);
+
+            String token = jwtService.generateToken(user);
+            System.out.println("Token generated for user: " + username);
+            return token;
+        } catch (AuthenticationException e) {
+            System.out.println("Authentication failed for user: " + username);
+            throw new UsernameNotFoundException("Invalid username or password");
         }
-
-        validTokens.forEach(t-> {
-            t.setLoggedOut(true);
-        });
-
-        tokenRepository.saveAll(validTokens);
     }
+
+
+
+    private void revokeAllTokenByUser(User user) {
+        tokenRepository.findAllByUserId(user.getId()).forEach(token -> {
+            token.setLoggedOut(true);
+            tokenRepository.save(token);
+        });
+    }
+
     private void saveUserToken(String jwt, User user) {
-        Token token = new Token();
-        token.setToken(jwt);
-        token.setLoggedOut(false);
-        token.setUser(user);
+        Token token = new Token(jwt, false, user);
         tokenRepository.save(token);
     }
 }
